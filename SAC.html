@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🛡️ Simulateur de sacs – v3 A→Z (Discours global unique)</title>
+  <style>
+    :root{ --bg:#f7f4ff;--ink:#2a2340;--brand:#7c3aed;--brand-2:#a78bfa;--chip:#eef2ff }
+    html,body{height:100%}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:var(--bg);color:var(--ink);margin:0}
+    header{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#ffffffee,#fff0);backdrop-filter:saturate(1.2) blur(6px);border-bottom:1px solid #e9e6ff}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    h1{margin:0 0 8px;font-size:24px;color:var(--brand)}
+    .bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .bar label{display:inline-flex;gap:6px;align-items:center;background:#fff;border:1px solid #e8e6ff;padding:6px 10px;border-radius:10px}
+    .bar input[type=number]{width:90px}
+    .btn{background:var(--brand);color:#fff;border:0;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .btn.secondary{background:#fff;color:var(--brand);border:1px solid #a78bfa}
+
+    .grid{max-width:1200px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1.4fr .6fr;gap:16px}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}}
+
+    #zoneVeilleurs{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+    .card{background:#fff;border:1px solid #eceaff;border-radius:14px;box-shadow:0 6px 16px rgba(124,58,237,.06);padding:12px}
+    .card h3{margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+
+    .chip{background:var(--chip);border:1px solid #e5e7ff;color:#4f46e5;padding:2px 8px;border-radius:999px;font-size:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+    .row input[type="text"], .row input[type="number"]{padding:6px 8px;border-radius:8px;border:1px solid #e5e5f5}
+
+    select.objet{min-width:210px}
+    .objets{display:flex;flex-wrap:wrap;gap:6px}
+    .def{margin-top:8px;font-weight:700;color:#6b21a8}
+    .delete{background:#fff;border:1px solid #ffe1e1;color:#b91c1c;border-radius:10px;padding:4px 8px;cursor:pointer}
+
+    textarea{width:100%;}
+    #stockPanel .stock-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed #eee}
+    #stockPanel .stock-row .qty{font-variant-numeric:tabular-nums}
+    #stockPanel .tag{font-size:11px;border:1px solid #eee;padding:0 6px;border-radius:999px}
+    #stockPanel input[type="search"]{width:100%;padding:8px;border:1px solid #e5e5f5;border-radius:10px;margin-bottom:8px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>🛡️ Simulateur de sacs – v3 A→Z</h1>
+      <div class="bar">
+        <label>Défense cible <input type="number" id="cible" value="600"/></label>
+        <button class="btn" id="btnGen">🎒 Générer sacs optimisés</button>
+        <button class="btn secondary" id="btnAdd">➕ Ajouter un veilleur</button>
+        <button class="btn secondary" id="btnImport">📥 Importer veilleurs rotation</button>
+        <button class="btn secondary" id="btnReload">🔄 Rafraîchir depuis Google Sheet</button>
+        <button class="btn secondary" id="btnReset">♻️ Réinitialiser</button>
+      </div>
+      <div class="bar" style="margin-top:8px">
+        <label><input type="checkbox" id="bonus_animalerie"> Bonus Animalerie</label>
+        <label><input type="checkbox" id="bonus_meuble"> Bonus Meuble Suédois</label>
+        <label><input type="checkbox" id="bonus_meuleuse"> Bonus Meuleuse</label>
+        <label><input type="checkbox" id="bonus_gouttière"> Bonus Gouttière</label>
+        <label><input type="checkbox" id="bonus_robinetterie"> Bonus Robinetterie</label>
+        <label><input type="checkbox" id="chien"> Chien</label>
+        <label><input type="checkbox" id="steak"> Steak</label>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section>
+      <div id="zoneVeilleurs"></div>
+
+      <div class="card" id="resumeCard" style="margin-top:12px">
+        <div class="row" style="justify-content:space-between">
+          <strong>Défense totale :</strong> <span id="défenseTotale">0</span>
+        </div>
+        <div id="résuméVeilleurs" class="résumé"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>📋 Export forum MyHordes</h3>
+        <label class="stack">
+          Texte d’introduction (affiché en tout début)
+          <textarea id="introForum" rows="4" placeholder="Ex: Consignes, rappel des horaires, etc."></textarea>
+        </label>
+        <label class="stack">
+          Texte de conclusion (affiché à la fin)
+          <textarea id="outroForum" rows="3" placeholder="Ex: Merci, rappel des règles, etc."></textarea>
+        </label>
+        <textarea id="exportForum" rows="12" placeholder="Le texte généré apparaîtra ici…"></textarea>
+      </div>
+    </section>
+
+    <aside class="card" id="stockPanel">
+      <h3>📦 Stocks restants <span class="chip" id="stockCount">0 objets</span></h3>
+      <input type="search" id="stockSearch" placeholder="Filtrer (ex: couteau, encombrant, eau, réparable)"/>
+      <div id="stockList"></div>
+    </aside>
+  </main>
+
+  <script>
+    /* ========= CONST ========= */
+    const GS_URL = "https://script.google.com/macros/s/AKfycbwgXCGqzvRm_m6AK40zmaxKYtb-zhwJ10WpVj96TtH0duzoQavRxPWNVs12dZXOwyuf_A/exec";
+    const DISCOURS_BUFF_PER = 15; // +15 par veilleur présent (global, si au moins 1 Discours porté)
+
+    /* ========= ÉTAT & SPÉCIAUX ========= */
+    let objets = []; 
+    const metiers = ["Gardien","Apprivoiseur","Éclaireur","Ermite","Fouineur","Technicien"];
+
+    // Discours = effet global ; prend 1 place pour le porteur
+    const SPECIALS = {
+      DISCOURS: { value: "__discours__", nom: "Discours", def: 0,  slotCost: 1 },
+      SAC_SUPP: { value: "__sac__",      nom: "Sac supplémentaire", def: 0,  slotCost: 0 },
+      CEINTURE: { value: "__ceinture__", nom: "Ceinture",           def: 0,  slotCost: 0 },
+    };
+
+    let aggArr = [];   
+    let aggByKey = {}; 
+
+    /* ========= BOOT ========= */
+    window.addEventListener("load", () => { chargerObjets(); });
+
+    async function chargerObjets(){
+      try{
+        const response = await fetch(`${GS_URL}?sheet=Fusionn%C3%A9&ts=${Date.now()}`, { cache: "no-store" });
+        const data = await response.json();
+        objets = data.filter(o =>
+          String(o["Valide pour sac"] || "").toLowerCase() === "oui" &&
+          !isNaN(parseFloat(o.Défense))
+        );
+        rebuildAggregates();
+        if(!document.querySelector(".carte-veilleur")) ajouterVeilleurManuel();
+        ajouterListenersGlobaux();
+        actualiserLibellésObjets();
+        updateStockPanel();
+        setInterval(exporterForumDepuisDOM, 1500);
+      }catch(e){
+        alert("Erreur de chargement des objets : " + e.message);
+        console.error(e);
+      }
+    }
+
+    /* ========= NORMALISATION ========= */
+    function stripAccents(s){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+    function normalizeBase(s){
+      if(!s) return "";
+      let t = s.trim().toLowerCase();
+      t = stripAccents(t);
+      t = t.split("(")[0].split("[")[0].split("{")[0];
+      t = t.split("—")[0].split(" - ")[0].split(":")[0];
+      t = t.replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim();
+      return t;
+    }
+    const SYNONYMS = [
+      { canon:"refrigerateur", alts:["réfrigérateur","refrigerateur","frigo","frigo americain","frigo américain"] },
+      { canon:"machine a laver", alts:["machine à laver","machine a laver","lave linge","lave-linge","lavelinge"] },
+      { canon:"micro ondes", alts:["micro ondes","micro-ondes","microonde","microondes"] },
+    ];
+    function applySynonyms(t){
+      for(const s of SYNONYMS){
+        for(const a of s.alts){
+          if(t === normalizeBase(a)) return s.canon;
+        }
+      }
+      return t;
+    }
+    function canonicalKey(name){ return applySynonyms(normalizeBase(name)); }
+    function titleCase(fr){ return fr ? fr.replace(/\w\S*/g, w=> w.charAt(0).toUpperCase()+w.slice(1)) : fr; }
+
+    /* ========= AGRÉGATION ========= */
+    function rebuildAggregates(){
+      const tmpByKey = {};
+      for(const o of objets){
+        const raw = o["Nom FR"] || "";
+        const key = canonicalKey(raw);
+        if(!key) continue;
+        const def = getBonus(o);
+        const rep = String(o["Objet réparable"]||"").toLowerCase()==="oui";
+        const eau = String(o["Remplissable eau"]||"").toLowerCase()==="oui";
+        const enc = String(o["Encombrant"]||"").toLowerCase()==="oui";
+        if(!tmpByKey[key]){
+          tmpByKey[key] = { key, nom: titleCase(raw.trim()), def, rep, eau, enc, ref:o };
+        }else{
+          if(def > tmpByKey[key].def){ tmpByKey[key].def = def; tmpByKey[key].ref = o; }
+          const shorter = raw.trim().length < tmpByKey[key].nom.length ? titleCase(raw.trim()) : tmpByKey[key].nom;
+          tmpByKey[key].nom = shorter;
+          tmpByKey[key].rep = tmpByKey[key].rep || rep;
+          tmpByKey[key].eau = tmpByKey[key].eau || eau;
+          tmpByKey[key].enc = tmpByKey[key].enc || enc;
+        }
+      }
+      aggArr = Object.values(tmpByKey);
+      aggByKey = {}; aggArr.forEach(it=> aggByKey[it.key]=it);
+    }
+
+    /* ========= HELPERS ========= */
+    const byId = (id)=>document.getElementById(id);
+
+    function getBonus(obj){
+      let def = parseFloat(obj.Défense)||0;
+      const mult = {animalerie:1.30, meuble:1.30, meuleuse:1.20, gouttière:1.30};
+      for(const key in obj){
+        const v = String(obj[key]??"").toLowerCase(); const k = key.toLowerCase();
+        if(v!=="oui") continue;
+        if(k.includes("animalerie") && byId("bonus_animalerie")?.checked) def*=mult.animalerie;
+        if(k.includes("meuble") && byId("bonus_meuble")?.checked) def*=mult.meuble;
+        if(k.includes("meuleuse") && byId("bonus_meuleuse")?.checked) def*=mult.meuleuse;
+        if(k.includes("gouttière") && byId("bonus_gouttière")?.checked) def*=mult.gouttière;
+      }
+      return Math.floor(def);
+    }
+
+    function calculerBaseMetier(métier){
+      const chien = byId("chien")?.checked;
+      const steak = byId("steak")?.checked;
+      if(métier==="Gardien") return 35;
+      if(métier==="Apprivoiseur"){
+        let base = 20;
+        if(chien) base += 10;
+        if(steak) base += 5;
+        return base;
+      }
+      return 20;
+    }
+
+    /* ========= STOCK ========= */
+    function initialStockByKey(){
+      const stock = {};
+      for(const o of objets){
+        const key = canonicalKey(o["Nom FR"]||"");
+        if(!key) continue;
+        const qty = parseInt(o.Quantité)||0;
+        stock[key] = (stock[key]||0) + qty;
+      }
+      return stock;
+    }
+
+    function selectionsActuellesKeys(){
+      const keys = [];
+      document.querySelectorAll(".carte-veilleur select.objet").forEach(sel=>{
+        const val = sel.value;
+        if(val && !Object.values(SPECIALS).map(s=>s.value).includes(val)) keys.push(val);
+      });
+      return keys;
+    }
+
+    function mapQuantitesRestantes(){
+      const rest = initialStockByKey();
+      selectionsActuellesKeys().forEach(key=>{
+        if(rest[key] != null) rest[key] = Math.max(0, rest[key]-1);
+      });
+      return rest;
+    }
+
+    /* ========= TRI ========= */
+    function trierAggAZ_FR(list){
+      const collator = new Intl.Collator('fr', { sensitivity: 'base', ignorePunctuation: true, numeric: true });
+      return [...list].sort((a,b)=> collator.compare(a.nom, b.nom));
+    }
+
+    // ordre d'affichage (spéciaux en tête : Sac supp > Ceinture > Discours > A→Z)
+    function orderEntriesForDisplay(entries){
+      const collator = new Intl.Collator('fr', { sensitivity:'base', ignorePunctuation:true, numeric:true });
+      const weight = (name) =>
+          name === SPECIALS.SAC_SUPP.nom ? 0
+        : name === SPECIALS.CEINTURE.nom ? 1
+        : name === SPECIALS.DISCOURS.nom ? 2
+        : 10;
+      return entries.sort((a,b)=>{
+        const wa = weight(a[0]), wb = weight(b[0]);
+        if (wa !== wb) return wa - wb;
+        return collator.compare(a[0], b[0]);
+      });
+    }
+
+    /* ========= UI VEILLEURS ========= */
+    function ajouterVeilleurManuel(){
+      const zone = byId("zoneVeilleurs");
+      const div = document.createElement("div");
+      div.className = "card carte-veilleur";
+      const id = zone.children.length + 1;
+      div.innerHTML = `
+        <h3>🧍‍♂️ Veilleur ${id} <button class="delete">Supprimer</button></h3>
+        <div class="row">
+          <input class="nom" placeholder="Nom ${id}"/>
+          <select class="métier">${metiers.map(m=>`<option>${m}</option>`).join("")}</select>
+          <span class="chip" title="Places de base"><input type="number" class="places-totales" min="1" value="6" style="width:56px"> places</span>
+          <label class="chip"><input type="checkbox" class="alcool"> 🍺</label>
+          <label class="chip"><input type="checkbox" class="drogue"> 💊</label>
+        </div>
+        <div class="row">
+          <label class="chip"><input type="checkbox" class="special-discours"> Discours (+15 / veilleur, 1 place)</label>
+          <label class="chip"><input type="checkbox" class="special-sacsupp"> Sac supplémentaire (+1 place)</label>
+          <label class="chip"><input type="checkbox" class="special-ceinture"> Ceinture (+1 place)</label>
+        </div>
+        <div class="objets"></div>
+        <div class="def">DEF : 0</div>
+      `;
+      div.querySelector(".delete").addEventListener("click",()=>{
+        div.remove(); simulerVeilleursAdvanced(); updateStockPanel();
+      });
+
+      ["input","change","keyup","blur"].forEach(ev=>{
+        div.querySelector(".places-totales").addEventListener(ev,()=>updateSac(div));
+      });
+      div.querySelector(".nom").addEventListener("input",()=>{ simulerVeilleursAdvanced(); });
+      div.querySelector(".métier").addEventListener("change",()=>{ simulerVeilleursAdvanced(); });
+      div.querySelector(".alcool").addEventListener("change",()=>{ simulerVeilleursAdvanced(); });
+      div.querySelector(".drogue").addEventListener("change",()=>{ simulerVeilleursAdvanced(); });
+      div.querySelector(".special-discours").addEventListener("change",()=>{ updateSac(div); });
+      div.querySelector(".special-sacsupp").addEventListener("change",()=>{ updateSac(div); });
+      div.querySelector(".special-ceinture").addEventListener("change",()=>{ updateSac(div); });
+
+      zone.appendChild(div);
+      updateSac(div);
+    }
+
+    function effectivePlaces(card){
+      const base = Number(card.querySelector('.places-totales').value||0);
+      const extra = (card.querySelector('.special-sacsupp').checked?1:0) + (card.querySelector('.special-ceinture').checked?1:0);
+      return base + extra;
+    }
+
+    // Spéciaux dans la liste : Sac supp / Ceinture en tête si cochés ; Discours en bas
+    function specialsBlocksHTML(card, selectedKey){
+      const sacCoche = card?.querySelector(".special-sacsupp")?.checked;
+      const ceintureCoche = card?.querySelector(".special-ceinture")?.checked;
+
+      const first = [];
+      const later = [];
+
+      const opt = (s, hint="") =>
+        `<option value="${s.value}" ${selectedKey===s.value?"selected":""}>${s.nom}${hint} · ∞</option>`;
+
+      if (sacCoche) first.push(opt(SPECIALS.SAC_SUPP));
+      else          later.push(opt(SPECIALS.SAC_SUPP));
+
+      if (ceintureCoche) first.push(opt(SPECIALS.CEINTURE));
+      else               later.push(opt(SPECIALS.CEINTURE));
+
+      later.push(opt(SPECIALS.DISCOURS, " · +15/veilleur"));
+
+      return { firstHTML: first.join(""), laterHTML: later.join("") };
+    }
+
+    // Liste déroulante triée A→Z (FR), sans désactiver les 0
+    function remplirListeObjets(select, selectedKey){
+      rebuildAggregates();
+      const rest = mapQuantitesRestantes();
+      const card = select.closest(".carte-veilleur");
+      const { firstHTML, laterHTML } = specialsBlocksHTML(card, selectedKey);
+
+      const aggAlpha = trierAggAZ_FR(aggArr);
+      const htmlAgg = aggAlpha.map(o=>{
+        const qty = rest[o.key] ?? 0;
+        const label = `${o.nom} — ${o.def} 🛡️ · ${qty} restant${qty>1?"s":""}${o.enc?" · encombrant":""}`;
+        return `<option value="${o.key}" ${selectedKey===o.key?"selected":""}>${label}</option>`;
+      }).join("");
+
+      select.innerHTML =
+        `${firstHTML}` +
+        `<optgroup label="Objets (A→Z)">${htmlAgg}</optgroup>` +
+        `${laterHTML ? `<optgroup label="Spéciaux">${laterHTML}</optgroup>` : ""}`;
+    }
+
+    function handleSelectChange(sel){
+      const card = sel.closest(".carte-veilleur");
+      const v = sel.value;
+      if(v === SPECIALS.SAC_SUPP.value){ card.querySelector('.special-sacsupp').checked = true; updateSac(card); return; }
+      if(v === SPECIALS.CEINTURE.value){ card.querySelector('.special-ceinture').checked = true; updateSac(card); return; }
+      if(v === SPECIALS.DISCOURS.value){ card.querySelector('.special-discours').checked = true; updateSac(card); return; }
+      simulerVeilleursAdvanced(); updateStockPanel(); actualiserLibellésObjets();
+    }
+
+    function updateSac(card){
+      const container = card.querySelector('.objets');
+      const places = effectivePlaces(card);
+      container.innerHTML = '';
+
+      let rest = mapQuantitesRestantes();
+      let placesRestantes = places;
+      let encombrantPris = false;
+
+      // Discours : occupe 1 place si coché (en premier)
+      if(card.querySelector('.special-discours').checked){
+        const sel = document.createElement('select'); sel.className='objet';
+        remplirListeObjets(sel, SPECIALS.DISCOURS.value);
+        sel.addEventListener('change',()=>handleSelectChange(sel));
+        container.appendChild(sel);
+        placesRestantes -= SPECIALS.DISCOURS.slotCost;
+      }
+
+      // Auto-fill : uniquement dans le stock > 0 (sélection manuelle autorisée à 0)
+      const aggAlpha = trierAggAZ_FR(aggArr).filter(o => (rest[o.key]||0) > 0);
+      for (const it of aggAlpha){
+        if (placesRestantes <= 0) break;
+        if (it.enc && encombrantPris) continue;
+        if (it.enc) encombrantPris = true;
+        if ((rest[it.key]||0) <= 0) continue;
+
+        rest[it.key]--; placesRestantes--;
+        const sel=document.createElement('select'); sel.className='objet';
+        remplirListeObjets(sel, it.key);
+        sel.addEventListener('change',()=>handleSelectChange(sel));
+        container.appendChild(sel);
+      }
+
+      simulerVeilleursAdvanced(); updateStockPanel();
+    }
+
+    function discoursEstActif(){
+      return [...document.querySelectorAll('.carte-veilleur .special-discours')].some(cb=>cb.checked)
+          || [...document.querySelectorAll('select.objet')].some(sel=>sel.value===SPECIALS.DISCOURS.value);
+    }
+
+    function simulerVeilleursAdvanced(){
+      let defTotaleIndividuelle=0; let résumé=[];
+      const cartes=[...document.querySelectorAll('.carte-veilleur')];
+
+      const discoursActive = discoursEstActif();
+      const bonusDiscours = discoursActive ? (cartes.length * DISCOURS_BUFF_PER) : 0;
+
+      cartes.forEach((card,idx)=>{
+        const nom=card.querySelector('.nom').value||`Veilleur ${idx+1}`;
+        const métier=card.querySelector('.métier').value;
+        const alcool=card.querySelector('.alcool').checked;
+        const drogue=card.querySelector('.drogue').checked;
+
+        const vals = [...card.querySelectorAll('select.objet')].map(sel=>sel.value).filter(Boolean);
+
+        const objetsChoisis = [];
+        for(const v of vals){
+          if(v===SPECIALS.DISCOURS.value){
+            objetsChoisis.push({ special:true, nom:SPECIALS.DISCOURS.nom, def:0, enc:false });
+          }else{
+            const it = aggByKey[v];
+            if(it) objetsChoisis.push({ special:false, nom: it.nom, ref: it.ref, enc: it.enc });
+          }
+        }
+        if(card.querySelector('.special-sacsupp').checked) objetsChoisis.push({ special:true, nom: SPECIALS.SAC_SUPP.nom, def:0, enc:false });
+        if(card.querySelector('.special-ceinture').checked) objetsChoisis.push({ special:true, nom: SPECIALS.CEINTURE.nom, def:0, enc:false });
+
+        const encombrants = objetsChoisis.filter(o=>o.enc===true || String(o.ref?.Encombrant||"").toLowerCase()==="oui");
+        if(encombrants.length > 1){
+          résumé.push(`❌ ${nom} a ${encombrants.length} encombrants`);
+          card.querySelector('.def').innerText='🛡️ : ❌';
+          return;
+        }
+
+        const defObjets = objetsChoisis.reduce((acc,o)=> acc + (o.special ? o.def : getBonus(o.ref)), 0);
+        // ⚠️ PAS de +discours ici (uniquement global)
+        let def = defObjets + calculerBaseMetier(métier) + (alcool?15:0) + (drogue?10:0);
+
+        card.querySelector('.def').innerText=`DEF : ${def}`;
+        defTotaleIndividuelle+=def;
+
+        const count={};
+        objetsChoisis.forEach(o=>{ count[o.nom]=(count[o.nom]||0)+1; });
+        const ordered = orderEntriesForDisplay(Object.entries(count));
+        const affichage = ordered.map(([n,c])=> c>1 ? `${n} x${c}` : n).join(', ');
+
+        const bonusIcons = [
+          alcool ? "🍺" : "",
+          drogue ? "💊" : "",
+          (métier === "Apprivoiseur" && byId("chien")?.checked) ? "🐕" : "",
+          (métier === "Apprivoiseur" && byId("steak")?.checked) ? "🥩" : "",
+        ].filter(Boolean).join(" ");
+
+        résumé.push(`🧍‍♂️ <strong>${nom}</strong> (${métier}) ${bonusIcons?bonusIcons:""} → <strong>${def} 🛡️</strong><br>👜 ${affichage}`);
+      });
+
+      if(discoursActive){
+        résumé.push(`🎤 Discours actif : +${bonusDiscours} (${cartes.length} × ${DISCOURS_BUFF_PER})`);
+      }
+
+      const cible=parseInt(byId('cible').value||'0');
+      const totalFinal = defTotaleIndividuelle + bonusDiscours;
+      const status = totalFinal>=cible?`✅ Objectif atteint ! (${totalFinal}/${cible})`:`❌ Défense insuffisante (${totalFinal}/${cible})`;
+      byId('défenseTotale').innerText=totalFinal;
+      byId('résuméVeilleurs').innerHTML = résumé.map(r=>`<div>${r}</div>`).join('') + `<hr><div style="margin-top:6px">${status}${bonusDiscours?` (dont +${bonusDiscours} discours)`:''}</div>`;
+    }
+
+    function actualiserLibellésObjets(){
+      document.querySelectorAll('select.objet').forEach(sel=>{
+        const current=sel.value; remplirListeObjets(sel,current);
+      });
+    }
+
+    function genererVeilleursAdvanced(){
+      byId('zoneVeilleurs').innerHTML='';
+      let ancienneDEF=0; let essais=0;
+      const cible=parseInt(byId('cible').value||'0');
+      let total=0;
+      while(total<cible && essais<80){
+        ajouterVeilleurManuel(); simulerVeilleursAdvanced();
+        total=parseInt(byId('défenseTotale').innerText);
+        if(total<=ancienneDEF) break;
+        ancienneDEF=total; essais++;
+      }
+      updateStockPanel();
+    }
+
+    /* ========= PANEL STOCK ========= */
+    function updateStockPanel(){
+      rebuildAggregates();
+      const list = byId('stockList');
+      const rest = mapQuantitesRestantes();
+
+      const itemsSheet = aggArr.map(o=>({
+        key:o.key, nom:o.nom, qty: rest[o.key] ?? 0,
+        def:o.def, enc:o.enc, eau:o.eau, rep:o.rep, special:false
+      }));
+
+      const itemsSpecials = [
+        { key:SPECIALS.DISCOURS.value, nom:`${SPECIALS.DISCOURS.nom} (global +${DISCOURS_BUFF_PER}/veilleur)`, qty:'∞', def:0, enc:false, eau:false, rep:false, special:true },
+        { key:SPECIALS.SAC_SUPP.value, nom:SPECIALS.SAC_SUPP.nom, qty:'∞', def:0, enc:false, eau:false, rep:false, special:true },
+        { key:SPECIALS.CEINTURE.value, nom:SPECIALS.CEINTURE.nom, qty:'∞', def:0, enc:false, eau:false, rep:false, special:true },
+      ];
+
+      const items = itemsSpecials.concat(itemsSheet);
+
+      const search = byId('stockSearch').value?.toLowerCase()||'';
+      const filtered = items.filter(it=>{
+        if(!search) return true;
+        return String(it.nom).toLowerCase().includes(search)
+          || (search.includes('encombr')&&it.enc)
+          || (search.includes('eau')&&it.eau)
+          || (search.includes('répar')&&it.rep);
+      }).sort((a,b)=>{
+        const qa = (a.qty==='∞')? Number.MAX_SAFE_INTEGER : a.qty;
+        const qb = (b.qty==='∞')? Number.MAX_SAFE_INTEGER : b.qty;
+        return (qb - qa) || (b.def - a.def);
+      });
+
+      byId('stockCount').innerText = `${filtered.length} objets`;
+      list.innerHTML = filtered.map(it=>`
+        <div class="stock-row">
+          <div>${it.nom} ${it.def?`<span class="tag">${it.def} 🛡️</span>`:''} ${it.enc?'<span class="tag">encombrant</span>':''} ${it.eau?'<span class="tag">eau</span>':''} ${it.rep?'<span class="tag">réparable</span>':''}</div>
+          <div class="qty">${it.qty}</div>
+          <div><button class="chip" onclick="ajouterObjetALeveilleur('${it.key}')">➕</button></div>
+        </div>
+      `).join('');
+    }
+
+    function ajouterObjetALeveilleur(key){
+      let last = [...document.querySelectorAll('.carte-veilleur')].pop();
+      if(!last){ ajouterVeilleurManuel(); last=[...document.querySelectorAll('.carte-veilleur')].pop(); }
+      const container = last.querySelector('.objets');
+
+      if(key===SPECIALS.SAC_SUPP.value){ last.querySelector('.special-sacsupp').checked = true; updateSac(last); return; }
+      if(key===SPECIALS.CEINTURE.value){ last.querySelector('.special-ceinture').checked = true; updateSac(last); return; }
+      if(key===SPECIALS.DISCOURS.value){ last.querySelector('.special-discours').checked = true; updateSac(last); return; }
+
+      const usedSlots = [...container.querySelectorAll('select.objet')].filter(s=>s.value!==SPECIALS.DISCOURS.value).length;
+      const allowed = effectivePlaces(last);
+      if(usedSlots >= allowed){ alert('Plus de place dans ce sac.'); return; }
+
+      const sel=document.createElement('select'); sel.className='objet';
+      remplirListeObjets(sel, key); sel.value = key;
+      sel.addEventListener('change',()=>handleSelectChange(sel));
+      container.appendChild(sel);
+      simulerVeilleursAdvanced(); updateStockPanel(); actualiserLibellésObjets();
+    }
+
+    /* ========= EXPORT (sans DEF par objet + icônes ; Discours appliqué au total) ========= */
+    function calculerBaseMetier_export(métier){
+      const chien = byId('chien')?.checked;
+      const steak = byId('steak')?.checked;
+      if(métier==='Gardien') return 35;
+      if(métier==='Apprivoiseur'){
+        if(chien && steak) return 35;
+        if(chien) return 30;
+        return 25;
+      }
+      return 20;
+    }
+
+    function exporterForumDepuisDOM() {
+      const cartes = document.querySelectorAll(".carte-veilleur");
+      const cible = parseInt(byId("cible").value || "0");
+      const intro = (byId("introForum")?.value || "").trim();
+      const outro = (byId("outroForum")?.value || "").trim();
+
+      const noms = Array.from(cartes).map((card, idx) =>
+        card.querySelector(".nom").value || `Veilleur ${idx + 1}`
+      ).filter(Boolean);
+
+      let totalIndividuel = 0;
+      let exportTxt = "";
+
+      const discoursActive = discoursEstActif();
+      const bonusDiscours = discoursActive ? (cartes.length * DISCOURS_BUFF_PER) : 0;
+
+      if (intro) exportTxt += intro + "\n\n";
+      exportTxt += `👥 Veilleurs (${noms.length}) : ${noms.join(", ")}\n\n`;
+
+      cartes.forEach((card, idx) => {
+        const nom = card.querySelector(".nom").value || `Veilleur ${idx + 1}`;
+        const métier = card.querySelector(".métier").value;
+        const alcool = card.querySelector(".alcool").checked;
+        const drogue = card.querySelector(".drogue").checked;
+
+        const vals = [...card.querySelectorAll('select.objet')].map(sel=>sel.value).filter(Boolean);
+
+        let def = 0;
+        const objForExport = [];
+
+        vals.forEach(v=>{
+          if(v===SPECIALS.DISCOURS.value){ objForExport.push(SPECIALS.DISCOURS.nom); }
+          else{
+            const it = aggByKey[v];
+            if(it){ def += getBonus(it.ref); objForExport.push(it.nom); }
+          }
+        });
+        if(card.querySelector('.special-sacsupp').checked) objForExport.push(SPECIALS.SAC_SUPP.nom);
+        if(card.querySelector('.special-ceinture').checked) objForExport.push(SPECIALS.CEINTURE.nom);
+
+        def += calculerBaseMetier(métier);
+        if(alcool) def+=15; if(drogue) def+=10;
+        // ⚠️ pas de discours ici
+
+        totalIndividuel += def;
+
+        const comptage = {};
+        objForExport.forEach(n => { comptage[n] = (comptage[n] || 0) + 1; });
+        const orderedExp = orderEntriesForDisplay(Object.entries(comptage));
+        const objetsTxt = orderedExp.map(([n,c])=> c>1 ? `${n} x${c}` : n).join(", ");
+
+        const icons = [
+          alcool ? "🍺" : "",
+          drogue ? "💊" : "",
+          (métier === "Apprivoiseur" && byId("chien")?.checked) ? "🐕" : "",
+          (métier === "Apprivoiseur" && byId("steak")?.checked) ? "🥩" : "",
+        ].filter(Boolean).join(" ");
+
+        exportTxt += `🧍‍♂️ ${nom} (${métier}) ${icons ? icons + " " : ""}– 🛡️ : ${def} (base ${calculerBaseMetier_export(métier)})\n`;
+        exportTxt += `👜 Objets : ${objetsTxt || "aucun"}\n\n`;
+      });
+
+      if(discoursActive){
+        exportTxt += `🎤 Bonus discours (global) : +${bonusDiscours}\n`;
+      }
+      const totalFinal = totalIndividuel + bonusDiscours;
+      exportTxt += `🛡️ Défense totale : ${totalFinal}/${cible} – ${totalFinal >= cible ? "✅ Objectif atteint" : "❌ Objectif non atteint"}${bonusDiscours?` (dont +${bonusDiscours} discours)`:''}\n`;
+      if (outro) exportTxt += `\n${outro}\n`;
+
+      const exportArea = byId("exportForum");
+      if (exportArea) exportArea.value = exportTxt;
+    }
+
+    /* ========= LISTENERS ========= */
+    function ajouterListenersGlobaux(){
+      if(ajouterListenersGlobaux._done) return;
+      ajouterListenersGlobaux._done = true;
+
+      byId('btnGen').addEventListener('click',genererVeilleursAdvanced);
+      byId('btnAdd').addEventListener('click',ajouterVeilleurManuel);
+      byId('btnImport').addEventListener('click',importerDepuisRotation);
+      byId('btnReset').addEventListener('click',()=>location.reload());
+      byId('btnReload').addEventListener('click', async ()=>{
+        await chargerObjets();
+        actualiserLibellésObjets();
+        updateStockPanel();
+        simulerVeilleursAdvanced();
+      });
+      ['chien','steak','bonus_animalerie','bonus_meuble','bonus_meuleuse','bonus_gouttière','bonus_robinetterie','cible']
+        .forEach(id=> byId(id).addEventListener('change', ()=>{
+          rebuildAggregates(); actualiserLibellésObjets(); simulerVeilleursAdvanced(); updateStockPanel();
+        }));
+      byId('stockSearch').addEventListener('input', updateStockPanel);
+    }
+
+    /* ========= IMPORT (rotation) ========= */
+    function importerDepuisRotation(){
+      const data = JSON.parse(localStorage.getItem("rotation_veilleurs") || "[]");
+      if (!data.length) return alert("Aucun veilleur trouvé depuis la rotation.");
+      data.forEach(() => { ajouterVeilleurManuel(); });
+      const cards=[...document.querySelectorAll('.carte-veilleur')];
+      data.forEach((v,i)=>{
+        const c=cards[i]; if(!c) return;
+        c.querySelector('.nom').value=v.nom||'';
+        c.querySelector('.métier').value=v.métier||'Gardien';
+        c.querySelector('.nom').dispatchEvent(new Event('input'));
+        c.querySelector('.métier').dispatchEvent(new Event('change'));
+      });
+    }
+  </script>
+</body>
+</html>
